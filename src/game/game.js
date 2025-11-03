@@ -20,18 +20,23 @@ export class Game {
     this.scene.background = new THREE.Color(0x0b0e22);
     this.scene.fog = new THREE.Fog(0x0b0e22, 10, 60);
 
-    this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
-    this.camera.position.set(0, 1, 8);
+    this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 220);
+    this.camera.position.set(6, 3.5, 14);
+    this.camera.lookAt(new THREE.Vector3(0, 0, -40));
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     const ambient = new THREE.AmbientLight(0xc9e9ff, 0.7);
     this.scene.add(ambient);
 
     const keyLight = new THREE.DirectionalLight(0x6cffd3, 1.1);
     keyLight.position.set(5, 8, 5);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(1024, 1024);
     this.scene.add(keyLight);
 
     const rimLight = new THREE.DirectionalLight(0x4d5cff, 0.7);
@@ -53,12 +58,13 @@ export class Game {
     this.player = this.createPlayer();
     this.scene.add(this.player);
 
-    this.tunnel = this.createTunnel();
-    this.scene.add(this.tunnel);
+    this.environment = this.createEnvironment();
+    this.scene.add(this.environment);
 
     this.obstacles = [];
     this.particlePool = [];
     this.activeParticles = [];
+    this.cameraTarget = new THREE.Vector3();
 
     this.playerSphere = new THREE.Sphere(this.player.position, PLAYER_RADIUS * 0.9);
     this.tmpBox = new THREE.Box3();
@@ -93,22 +99,22 @@ export class Game {
     return mesh;
   }
 
-  createTunnel() {
+  createEnvironment() {
     const group = new THREE.Group();
-    const segmentCount = 12;
-    const tunnelRadius = 6;
+    const streakMaterial = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.32 });
+    const count = 28;
 
-    for (let i = 0; i < segmentCount; i++) {
-      const geometry = new THREE.TorusGeometry(tunnelRadius, 0.1, 16, 100);
-      const material = new THREE.MeshBasicMaterial({
-        color: new THREE.Color(`hsl(${220 + i * 5}, 70%, 45%)`),
-        transparent: true,
-        opacity: 0.25,
-      });
-      const ring = new THREE.Mesh(geometry, material);
-      ring.rotation.x = Math.PI / 2;
-      ring.position.z = -i * 8;
-      group.add(ring);
+    for (let i = 0; i < count; i++) {
+      const height = THREE.MathUtils.lerp(6, 14, Math.random());
+      const geometry = new THREE.BoxGeometry(0.25, height, 0.25);
+      const material = streakMaterial.clone();
+      material.color = new THREE.Color(`hsl(${200 + Math.random() * 40}, 80%, ${45 + Math.random() * 10}%)`);
+      material.depthWrite = false;
+      const streak = new THREE.Mesh(geometry, material);
+      const side = Math.random() > 0.5 ? 1 : -1;
+      streak.position.set(side * THREE.MathUtils.lerp(4.5, 8, Math.random()), (Math.random() - 0.5) * 4, -i * 8 - 5);
+      streak.userData.speedFactor = THREE.MathUtils.lerp(0.6, 1.4, Math.random());
+      group.add(streak);
     }
 
     return group;
@@ -190,6 +196,12 @@ export class Game {
     }
     this.activeParticles.length = 0;
 
+    this.environment.children.forEach((streak, index) => {
+      streak.position.z = -index * 8 - 5;
+      streak.position.y = (Math.random() - 0.5) * 4;
+      streak.userData.speedFactor = THREE.MathUtils.lerp(0.6, 1.4, Math.random());
+    });
+
     if (this.onScore) {
       this.onScore(this.score);
     }
@@ -213,18 +225,25 @@ export class Game {
     this.player.position.y = lerp(this.player.position.y, targetY, 0.12 + difficultyFactor * 0.1);
     this.player.rotation.z = lerp(this.player.rotation.z, (this.controlValue - 0.5) * 0.6, 0.2);
 
-    this.updateTunnel(delta);
+    this.camera.position.y = lerp(this.camera.position.y, 3.5 + this.player.position.y * 0.25, 0.08);
+    this.camera.position.x = lerp(this.camera.position.x, 6 + (this.controlValue - 0.5) * 1.2, 0.05);
+    this.cameraTarget.set(0, this.player.position.y * 0.35, -40);
+    this.camera.lookAt(this.cameraTarget);
+
+    this.updateEnvironment(delta);
     this.updateObstacles(delta, difficultyFactor);
     this.updateParticles(delta);
 
     this.renderer.render(this.scene, this.camera);
   }
 
-  updateTunnel(delta) {
-    this.tunnel.children.forEach((ring) => {
-      ring.position.z += delta * this.speed * 0.8;
-      if (ring.position.z > 4) {
-        ring.position.z = -88;
+  updateEnvironment(delta) {
+    this.environment.children.forEach((streak) => {
+      streak.position.z += delta * this.speed * streak.userData.speedFactor;
+      if (streak.position.z > 6) {
+        streak.position.z = -90 - Math.random() * 20;
+        streak.position.y = (Math.random() - 0.5) * 4;
+        streak.userData.speedFactor = THREE.MathUtils.lerp(0.6, 1.4, Math.random());
       }
     });
   }
