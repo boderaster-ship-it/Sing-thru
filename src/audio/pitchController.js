@@ -3,6 +3,15 @@ const MAX_PITCH = 550;
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
+const median = (values) => {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  if (sorted.length % 2 === 0) {
+    return (sorted[middle - 1] + sorted[middle]) / 2;
+  }
+  return sorted[middle];
+};
+
 function autoCorrelate(buffer, sampleRate) {
   const SIZE = buffer.length;
   const MAX_SAMPLES = Math.floor(SIZE / 2);
@@ -50,7 +59,7 @@ function autoCorrelate(buffer, sampleRate) {
 }
 
 export class PitchController {
-  constructor({ onValue, minPitch = MIN_PITCH, maxPitch = MAX_PITCH, smoothing = 0.15 } = {}) {
+  constructor({ onValue, minPitch = MIN_PITCH, maxPitch = MAX_PITCH, smoothing = 0.25 } = {}) {
     this.onValue = onValue;
     this.minPitch = minPitch;
     this.maxPitch = maxPitch;
@@ -62,6 +71,8 @@ export class PitchController {
     this.isRunning = false;
     this.normalizedValue = 0.5;
     this.fallbackTimer = 0;
+    this.recentDetections = [];
+    this.maxDetections = 7;
   }
 
   async start() {
@@ -109,7 +120,16 @@ export class PitchController {
     }
 
     if (typeof normalized === 'number') {
-      this.normalizedValue = this.normalizedValue + (normalized - this.normalizedValue) * this.smoothing;
+      this.recentDetections.push(normalized);
+      if (this.recentDetections.length > this.maxDetections) {
+        this.recentDetections.shift();
+      }
+
+      const stabilized = median(this.recentDetections);
+      const delta = Math.abs(stabilized - this.normalizedValue);
+      const dynamicSmoothing = delta > 0.25 ? 0.55 : delta > 0.1 ? 0.4 : this.smoothing;
+
+      this.normalizedValue = this.normalizedValue + (stabilized - this.normalizedValue) * dynamicSmoothing;
       if (this.onValue) {
         this.onValue(this.normalizedValue);
       }
