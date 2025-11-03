@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Sing Thru - Voice Controlled Runner</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="styles/main.css" />
+</head>
+<body>
+  <div id="ui">
+    <header class="hud">
+      <div class="logo">Sing<span>Thru</span></div>
+      <div class="scoreboard">
+        <div class="score-label">Score</div>
+        <div id="score" class="score-value">0</div>
+      </div>
+    </header>
+    <main class="status-panel">
+      <button id="startButton" class="primary-button">Spiel starten</button>
+      <div class="hint">Steuere den Ball mit deiner Stimme – höre hoch für höher, tief für tiefer.</div>
+    </main>
+  </div>
+
+  <div id="gameOverlay" class="overlay hidden">
+    <div class="overlay-card">
+      <h1>Game Over</h1>
+      <p>Score: <span id="finalScore">0</span></p>
+      <button id="retryButton" class="primary-button">Nochmal spielen</button>
+    </div>
+  </div>
+
+  <canvas id="gameCanvas"></canvas>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
